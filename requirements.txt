@@ -1,0 +1,7 @@
+re-ircbot
+multiprocess
+pathos
+RestrictedPython
+requests
+validators
+numpy
