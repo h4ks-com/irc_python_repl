@@ -37,7 +37,7 @@ CHANNELS = ["#bots"]  # , "#lobby",]
 utils.setPrefix("`")
 utils.setParseOrderTopBottom(False)
 
-MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools", "socket"]
+MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools", "socket", "time", "re", "random", "collections", "datetime", "requests", "http", "hashlib", "json", "copy"]
 TIMEOUT = 5
 
 ##################################################
@@ -56,7 +56,7 @@ def interpret(code, env):
 
     def guarded_import(mname, globals={}, locals={}, fromlist=(), # noqa A002
                        level=0):
-        if mname in MODULES_WHITELIST:
+        if mname in MODULES_WHITELIST or ("." in mname and mname.split(".")[0] in MODULES_WHITELIST):
             return __import__(mname, globals, locals, fromlist)
         else:
             raise Exception("This module is not whitelisted")
@@ -79,8 +79,13 @@ def interpret(code, env):
             "_getiter_": RestrictedPython.Eval.default_guarded_getiter,
             "_iter_unpack_sequence_": RestrictedPython.Guards.guarded_iter_unpack_sequence,
             "__import__": guarded_import,
-        },
+            "sum": __builtins__.sum,
+            "map": __builtins__.map,
+            "filter": __builtins__.filter,
+            },
         "_getattr_": RestrictedPython.Guards.safer_getattr,
+        "_write_": lambda x: x,
+        "_getitem_": lambda obj, key: obj[key]
     }
     debug("!!!!! Executing command from process.......")
     debug(str(env))
@@ -127,6 +132,44 @@ def clear(args, message):
         user_env[message.nick] = {}
         return f"<{message.nick}> Environment and history cleared!"
 
+
+@utils.regex_cmd_with_messsage("^`(.+)`$")
+async def run(bot: IrcBot, m, message):
+    global pool
+    global user_source
+    source = m[1]
+    debug("Executing {}".format(repr(source)))
+    output = process_source(message.nick, source)
+    await bot.send_message(f"<{message.nick}>> " + output, message.channel)
+
+@utils.regex_cmd_with_messsage("^(.+)$")
+def multiline_capture(m, message):
+    global user_multiline
+    debug(f"RECEIVED: {message.text=}")
+    if message.nick in user_state and user_state[message.nick]:
+        if message.nick not in user_multiline:
+            user_multiline[message.nick] = ""
+        user_multiline[message.nick] += message.text + "\n"
+
+@utils.regex_cmd_with_messsage("^```$")
+def start_multiline(m, message):
+    global user_state
+    if message.nick not in user_state or not user_state[message.nick]:
+        user_state[message.nick] = True
+        user_multiline[message.nick] = ""
+        return f"<{message.nick}> Waiting for lines, type ``` to finish and execute"
+    else:
+        user_state[message.nick] = False
+        if message.nick not in user_multiline or (
+                message.nick in user_multiline and len(user_multiline[message.nick]) == 0):
+            return f"<{message.nick}> Ignoring empty multiline code"
+        output = process_source(message.nick, user_multiline[message.nick])
+        return f"<{message.nick}>> " + output
+
+
+@utils.arg_command("lsmod", "List available whitelisted modules")
+def lsmod(args, message):
+    return f"<{message.nick}> Available modules are: " + ", ".join(MODULES_WHITELIST)
 
 @utils.arg_command("paste", "Paste the code history to ix.io")
 def paste(args, message):
@@ -176,39 +219,6 @@ async def transfer(bot: IrcBot, args, message):
         user_env[nick] = {}
     user_env[nick].update(user_env[args[1]])
     await bot.send_message(f"<{message.nick}> Environment imported!", message.channel)
-
-@utils.regex_cmd_with_messsage("^`(.+)`$")
-async def run(bot: IrcBot, m, message):
-    global pool
-    global user_source
-    source = m[1]
-    debug("Executing {}".format(repr(source)))
-    output = process_source(message.nick, source)
-    await bot.send_message(f"<{message.nick}>> " + output, message.channel)
-
-@utils.regex_cmd_with_messsage("^(.+)$")
-def multiline_capture(m, message):
-    global user_multiline
-    debug(f"RECEIVED: {message.text=}")
-    if message.nick in user_state and user_state[message.nick]:
-        if message.nick not in user_multiline:
-            user_multiline[message.nick] = ""
-        user_multiline[message.nick] += message.text + "\n"
-
-@utils.regex_cmd_with_messsage("^```$")
-def start_multiline(m, message):
-    global user_state
-    if message.nick not in user_state or not user_state[message.nick]:
-        user_state[message.nick] = True
-        user_multiline[message.nick] = ""
-        return f"<{message.nick}> Waiting for lines, type ``` to finish and execute"
-    else:
-        user_state[message.nick] = False
-        if message.nick not in user_multiline or (
-                message.nick in user_multiline and len(user_multiline[message.nick]) == 0):
-            return f"<{message.nick}> Ignoring empty multiline code"
-        output = process_source(message.nick, user_multiline[message.nick])
-        return f"<{message.nick}>> " + output
 
 if __name__ == "__main__":
     utils.setLogging(LEVEL, LOGFILE)
