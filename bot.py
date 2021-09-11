@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Python repl bot for irc using re-ircbot.
 
-Intent to be executed on a docker container for better OPSEC
+Indented to be executed on a docker container for better OPSEC
 """
 
 import logging
@@ -10,7 +10,7 @@ from IrcBot.bot import Color, IrcBot, Message, utils
 from IrcBot.utils import debug, log
 
 import RestrictedPython
-from RestrictedPython import compile_restricted, utility_builtins
+from RestrictedPython import compile_restricted, limited_builtins, safe_builtins, utility_builtins
 from RestrictedPython.PrintCollector import PrintCollector
 
 import multiprocess
@@ -37,7 +37,7 @@ CHANNELS = ["#bots"]  # , "#lobby",]
 utils.setPrefix("`")
 utils.setParseOrderTopBottom(False)
 
-MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools"]
+MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools", "socket"]
 TIMEOUT = 5
 
 ##################################################
@@ -50,24 +50,37 @@ user_env = {}
 user_state = {}
 user_multiline = {}
 
+
 def interpret(code, env):
     """Interprets the given python code inside a safe execution environment."""
+
+    def guarded_import(mname, globals={}, locals={}, fromlist=(), # noqa A002
+                       level=0):
+        if mname in MODULES_WHITELIST:
+            return __import__(mname, globals, locals, fromlist)
+        else:
+            raise Exception("This module is not whitelisted")
+
     code += "\n_ = printed"
     byte_code = compile_restricted(
         code,
         filename="<string>",
         mode="exec",
     )
+
     data = {
         "_print_": PrintCollector,
         "__builtins__": {
+            **safe_builtins,
+            **limited_builtins,
             **utility_builtins,
             "all": all,
             "any": any,
             "_getiter_": RestrictedPython.Eval.default_guarded_getiter,
-            "_iter_unpack_sequence_": RestrictedPython.Guards.guarded_iter_unpack_sequence
+            "_iter_unpack_sequence_": RestrictedPython.Guards.guarded_iter_unpack_sequence,
+            "__import__": guarded_import,
         },
-        "_getattr_": RestrictedPython.Guards.safer_getattr
+        "_getattr_": RestrictedPython.Guards.safer_getattr,
     }
     debug("!!!!! Executing command from process.......")
     debug(str(env))
@@ -196,8 +209,6 @@ def start_multiline(m, message):
             return f"<{message.nick}> Ignoring empty multiline code"
         output = process_source(message.nick, user_multiline[message.nick])
         return f"<{message.nick}>> " + output
-
-
 
 if __name__ == "__main__":
     utils.setLogging(LEVEL, LOGFILE)
