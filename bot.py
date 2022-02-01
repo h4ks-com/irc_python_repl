@@ -37,7 +37,7 @@ CHANNELS = ["#bots"]  # , "#lobby",]
 utils.setPrefix("`")
 utils.setParseOrderTopBottom(False)
 
-MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools", "socket", "time", "re", "random", "collections", "datetime", "requests", "http", "hashlib", "json", "copy"]
+MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools", "socket", "time", "re", "random", "collections", "datetime", "requests", "http", "hashlib", "json", "copy", "functools", "secrets", "string"]
 TIMEOUT = 5
 
 ##################################################
