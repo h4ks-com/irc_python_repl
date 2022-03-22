@@ -25,10 +25,10 @@ import requests
 ##################################################
 
 LOGFILE = None
-LEVEL = logging.DEBUG
+LEVEL = logging.INFO
 HOST = 'irc.dot.org.es'
 PORT = 6667
-NICK = '_python_repl'
+NICK = 'pybot'
 PASSWORD = ''
 USERNAME = NICK
 REALNAME = NICK
