@@ -6,19 +6,15 @@ Indented to be executed on a docker container for better OPSEC
 
 import logging
 
+import multiprocess
+import requests
+import RestrictedPython
 from IrcBot.bot import Color, IrcBot, Message, utils
 from IrcBot.utils import debug, log
-
-import RestrictedPython
-from RestrictedPython import compile_restricted, limited_builtins, safe_builtins, utility_builtins
-from RestrictedPython.PrintCollector import PrintCollector
-
-import multiprocess
-
 from pathos.multiprocessing import ProcessPool
-
-import requests
-
+from RestrictedPython import (compile_restricted, limited_builtins,
+                              safe_builtins, utility_builtins)
+from RestrictedPython.PrintCollector import PrintCollector
 
 ##################################################
 # SETTINGS                                       #
@@ -74,15 +70,71 @@ def interpret(code, env):
             **safe_builtins,
             **limited_builtins,
             **utility_builtins,
-            "all": all,
-            "any": any,
             "_getiter_": RestrictedPython.Eval.default_guarded_getiter,
             "_iter_unpack_sequence_": RestrictedPython.Guards.guarded_iter_unpack_sequence,
             "__import__": guarded_import,
-            "sum": __builtins__.sum,
-            "map": __builtins__.map,
+            "abs": __builtins__.abs,
+            "all": __builtins__.all, 
+            "any": __builtins__.any,
+            "ascii": __builtins__.ascii,
+            "bin": __builtins__.bin,
+            "bool": __builtins__.bool,
+            "bytearray": __builtins__.bytearray,
+            "bytes": __builtins__.bytes,
+            "callable": __builtins__.callable,
+            "chr": __builtins__.chr,
+            "classmethod": __builtins__.classmethod,
+            "complex": __builtins__.complex,
+            "delattr": __builtins__.delattr,
+            "dict": __builtins__.dict,
+            "dir": __builtins__.dir,
+            "divmod": __builtins__.divmod,
+            "enumerate": __builtins__.enumerate,
             "filter": __builtins__.filter,
-            },
+            "float": __builtins__.float,
+            "format": __builtins__.format,
+            "frozenset": __builtins__.frozenset,
+            "getattr": __builtins__.getattr,
+            "globals": __builtins__.globals,
+            "hasattr": __builtins__.hasattr,
+            "hash": __builtins__.hash,
+            "help": __builtins__.help,
+            "hex": __builtins__.hex,
+            "id": __builtins__.id,
+            "int": __builtins__.int,
+            "isinstance": __builtins__.isinstance,
+            "issubclass": __builtins__.issubclass,
+            "iter": __builtins__.iter,
+            "len": __builtins__.len,
+            "list": __builtins__.list,
+            "locals": __builtins__.locals,
+            "map": __builtins__.map,
+            "max": __builtins__.max,
+            "min": __builtins__.min,
+            "next": __builtins__.next,
+            "object": __builtins__.object,
+            "oct": __builtins__.oct,
+            "ord": __builtins__.ord,
+            "pow": __builtins__.pow,
+            "print": __builtins__.print,
+            "property": __builtins__.property,
+            "range": __builtins__.range,
+            "repr": __builtins__.repr,
+            "reversed": __builtins__.reversed,
+            "round": __builtins__.round,
+            "set": __builtins__.set,
+            "setattr": __builtins__.setattr,
+            "slice": __builtins__.slice,
+            "sorted": __builtins__.sorted,
+            "staticmethod": __builtins__.staticmethod,
+            "str": __builtins__.str,
+            "sum": __builtins__.sum,
+            "super": __builtins__.super,
+            "tuple": __builtins__.tuple,
+            "type": __builtins__.type,
+            "vars": __builtins__.vars,
+            "zip": __builtins__.zip,
+        },
         "_getattr_": RestrictedPython.Guards.safer_getattr,
         "_write_": lambda x: x,
         "_getitem_": lambda obj, key: obj[key]
