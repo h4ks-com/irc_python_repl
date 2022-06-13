@@ -22,8 +22,9 @@ from RestrictedPython.PrintCollector import PrintCollector
 
 LOGFILE = None
 LEVEL = logging.INFO
-HOST = 'irc.dot.org.es'
-PORT = 6667
+HOST="10.0.0.252"
+PORT=6667
+SSL=False
 NICK = 'pybot'
 PASSWORD = ''
 USERNAME = NICK
@@ -274,5 +275,5 @@ async def transfer(bot: IrcBot, args, message):
 
 if __name__ == "__main__":
     utils.setLogging(LEVEL, LOGFILE)
-    bot = IrcBot(HOST, PORT, NICK, CHANNELS, PASSWORD, strip_messages=False)
+    bot = IrcBot(HOST, PORT, NICK, CHANNELS, PASSWORD, strip_messages=False, use_ssl=SSL)
     bot.run()
