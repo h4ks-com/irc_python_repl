@@ -273,7 +273,19 @@ async def transfer(bot: IrcBot, args, message):
     user_env[nick].update(user_env[args[1]])
     await bot.send_message(f"<{message.nick}> Environment imported!", message.channel)
 
+async def check_no_bot(bot: IrcBot, message: Message):
+    await bot.send_raw("WHO {}".format(message.nick))
+    resp = await bot.wait_for("who", message.nick, timeout=10, cache_ttl=60)
+    modes = resp.get("modes")
+    if modes is None or "B" in modes:
+        return False
+    return True
+
+async def on_connect(bot: IrcBot):
+    await bot.send_raw(f"MODE {bot.nick} +B")
+
 if __name__ == "__main__":
     utils.setLogging(LEVEL, LOGFILE)
     bot = IrcBot(HOST, PORT, NICK, CHANNELS, PASSWORD, strip_messages=False, use_ssl=SSL)
-    bot.run()
+    bot.add_middleware(check_no_bot)
+    bot.runWithCallback(on_connect)
