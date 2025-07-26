@@ -4,17 +4,21 @@
 Indented to be executed on a docker container for better OPSEC
 """
 
+import json
 import logging
+import os
 
 import multiprocess
 import requests
 import RestrictedPython
+from dotenv import load_dotenv
 from IrcBot.bot import Color, IrcBot, Message, utils
 from IrcBot.utils import debug, log
 from pathos.multiprocessing import ProcessPool
-from RestrictedPython import (compile_restricted, limited_builtins,
-                              safe_builtins, utility_builtins)
+from RestrictedPython import compile_restricted, limited_builtins, safe_builtins, utility_builtins
 from RestrictedPython.PrintCollector import PrintCollector
+
+load_dotenv()
 
 ##################################################
 # SETTINGS                                       #
@@ -22,19 +26,38 @@ from RestrictedPython.PrintCollector import PrintCollector
 
 LOGFILE = None
 LEVEL = logging.INFO
-HOST="10.0.0.252"
-PORT=6667
-SSL=False
-NICK = 'pybot'
-PASSWORD = ''
+HOST = os.getenv("IRC_HOST")
+PORT = int(os.getenv("IRC_PORT") or 6667)
+SSL = os.getenv("IRC_SSL") == "true"
+NICK = os.getenv("NICK") or "_pybot"
+PASSWORD = os.getenv("PASSWORD") or ""
 USERNAME = NICK
 REALNAME = NICK
-CHANNELS = ["#bots"]  # , "#lobby",]
+CHANNELS = json.loads(os.getenv("CHANNELS") or "[]")
 
 utils.setPrefix("`")
 utils.setParseOrderTopBottom(False)
 
-MODULES_WHITELIST = ["numpy", "IrcBot", "math", "itertools", "socket", "time", "re", "random", "collections", "datetime", "requests", "http", "hashlib", "json", "copy", "functools", "secrets", "string"]
+MODULES_WHITELIST = [
+    "numpy",
+    "IrcBot",
+    "math",
+    "itertools",
+    "socket",
+    "time",
+    "re",
+    "random",
+    "collections",
+    "datetime",
+    "requests",
+    "http",
+    "hashlib",
+    "json",
+    "copy",
+    "functools",
+    "secrets",
+    "string",
+]
 TIMEOUT = 5
 
 ##################################################
@@ -51,8 +74,7 @@ user_multiline = {}
 def interpret(code, env):
     """Interprets the given python code inside a safe execution environment."""
 
-    def guarded_import(mname, globals={}, locals={}, fromlist=(), # noqa A002
-                       level=0):
+    def guarded_import(mname, globals={}, locals={}, fromlist=(), level=0):  # noqa A002
         if mname in MODULES_WHITELIST or ("." in mname and mname.split(".")[0] in MODULES_WHITELIST):
             return __import__(mname, globals, locals, fromlist)
         else:
@@ -75,7 +97,7 @@ def interpret(code, env):
             "_iter_unpack_sequence_": RestrictedPython.Guards.guarded_iter_unpack_sequence,
             "__import__": guarded_import,
             "abs": __builtins__.abs,
-            "all": __builtins__.all, 
+            "all": __builtins__.all,
             "any": __builtins__.any,
             "ascii": __builtins__.ascii,
             "bin": __builtins__.bin,
@@ -138,7 +160,7 @@ def interpret(code, env):
         },
         "_getattr_": RestrictedPython.Guards.safer_getattr,
         "_write_": lambda x: x,
-        "_getitem_": lambda obj, key: obj[key]
+        "_getitem_": lambda obj, key: obj[key],
     }
     debug("!!!!! Executing command from process.......")
     debug(str(env))
@@ -146,6 +168,7 @@ def interpret(code, env):
     debug("-" * 23)
     debug(str(env))
     return env
+
 
 def process_source(nick, source):
     global user_source
@@ -166,16 +189,17 @@ def process_source(nick, source):
         user_source[nick] += "\n" + source
         debug("Output collected")
     except multiprocess.context.TimeoutError:
-        output = Color(
-            "Timeout error - do you have an infinite loop?", fg=Color.red).str
+        output = Color("Timeout error - do you have an infinite loop?", fg=Color.red).str
     except Exception as e:
         output = Color("Runtime error: {}".format(e), fg=Color.red).str
 
     return output or "(no output to stdout)"
 
+
 ##################################################
 # RUNTIME & HANDLERS
 ##################################################
+
 
 @utils.arg_command("clear", "Clear environment and history")
 def clear(args, message):
@@ -195,6 +219,7 @@ async def run(bot: IrcBot, m, message):
     output = process_source(message.nick, source)
     await bot.send_message(f"<{message.nick}>> " + output, message.channel)
 
+
 @utils.regex_cmd_with_messsage("^(.+)$")
 def multiline_capture(m, message):
     global user_multiline
@@ -203,6 +228,7 @@ def multiline_capture(m, message):
         if message.nick not in user_multiline:
             user_multiline[message.nick] = ""
         user_multiline[message.nick] += message.text + "\n"
+
 
 @utils.regex_cmd_with_messsage("^```$")
 def start_multiline(m, message):
@@ -214,7 +240,8 @@ def start_multiline(m, message):
     else:
         user_state[message.nick] = False
         if message.nick not in user_multiline or (
-                message.nick in user_multiline and len(user_multiline[message.nick]) == 0):
+            message.nick in user_multiline and len(user_multiline[message.nick]) == 0
+        ):
             return f"<{message.nick}> Ignoring empty multiline code"
         output = process_source(message.nick, user_multiline[message.nick])
         return f"<{message.nick}>> " + output
@@ -224,16 +251,17 @@ def start_multiline(m, message):
 def lsmod(args, message):
     return f"<{message.nick}> Available modules are: " + ", ".join(MODULES_WHITELIST)
 
+
 @utils.arg_command("paste", "Paste the code history to ix.io")
 def paste(args, message):
     if message.nick not in user_source:
         return
     log("Pasting ", message.nick)
     url = "http://ix.io"
-    payload = {'f:N': user_source[message.nick],
-               'name:N': 'python_repl_bot_dump.py'}
+    payload = {"f:N": user_source[message.nick], "name:N": "python_repl_bot_dump.py"}
     response = requests.request("POST", url, data=payload)
     return f"<{message.nick}> " + response.text
+
 
 @utils.arg_command("show", "Sends the code history over private messages")
 def show(args, message):
@@ -241,6 +269,7 @@ def show(args, message):
         return
     log("Showing in PM ", message.nick)
     return [Message(message=ln, channel=message.nick) for ln in user_source[message.nick].split("\n")]
+
 
 @utils.arg_command("run", "Runs code from a url, e.g. ix.io")
 def paste_run(args, message):
@@ -254,6 +283,7 @@ def paste_run(args, message):
     debug("Executing {}".format(repr(source)))
     output = process_source(message.nick, source)
     return f"<{message.nick}>> " + output
+
 
 @utils.arg_command("get", "Gets the environmental variables from another user in the chat")
 async def transfer(bot: IrcBot, args, message):
@@ -273,6 +303,7 @@ async def transfer(bot: IrcBot, args, message):
     user_env[nick].update(user_env[args[1]])
     await bot.send_message(f"<{message.nick}> Environment imported!", message.channel)
 
+
 async def check_no_bot(bot: IrcBot, message: Message):
     await bot.send_raw("WHO {}".format(message.nick))
     resp = await bot.wait_for("who", message.nick, timeout=10, cache_ttl=60)
@@ -281,8 +312,10 @@ async def check_no_bot(bot: IrcBot, message: Message):
         return False
     return True
 
+
 async def on_connect(bot: IrcBot):
     await bot.send_raw(f"MODE {bot.nick} +B")
+
 
 if __name__ == "__main__":
     utils.setLogging(LEVEL, LOGFILE)
