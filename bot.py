@@ -7,6 +7,7 @@ Indented to be executed on a docker container for better OPSEC
 import json
 import logging
 import os
+import tempfile
 
 import multiprocess
 import requests
@@ -340,7 +341,7 @@ async def check_no_bot(bot: IrcBot, message: Message):
     resp = await bot.wait_for("who", message.nick, timeout=10, cache_ttl=60)
     print("22222222222222222222222222222")
     modes = resp.get("modes")
-    if modes is None or "B" in modes:
+    if "B" in modes:
         return False
     return True
 
