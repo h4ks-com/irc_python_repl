@@ -12,8 +12,8 @@ import multiprocess
 import requests
 import RestrictedPython
 from dotenv import load_dotenv
-from IrcBot.bot import Color, IrcBot, Message, utils
-from IrcBot.utils import debug, log
+from ircbot import Color, IrcBot, utils
+from ircbot.message import Message
 from pathos.multiprocessing import ProcessPool
 from RestrictedPython import compile_restricted, limited_builtins, safe_builtins, utility_builtins
 from RestrictedPython.PrintCollector import PrintCollector
@@ -25,7 +25,7 @@ load_dotenv()
 ##################################################
 
 LOGFILE = None
-LEVEL = logging.INFO
+LEVEL = int(os.getenv("LOG_LEVEL", logging.INFO))
 HOST = os.getenv("IRC_HOST")
 PORT = int(os.getenv("IRC_PORT") or 6667)
 SSL = os.getenv("IRC_SSL") == "true"
@@ -34,9 +34,13 @@ PASSWORD = os.getenv("PASSWORD") or ""
 USERNAME = NICK
 REALNAME = NICK
 CHANNELS = json.loads(os.getenv("CHANNELS") or "[]")
+assert HOST, "IRC_HOST must be set in the environment"
 
-utils.setPrefix("`")
-utils.setParseOrderTopBottom(False)
+bot = (
+    IrcBot(HOST, PORT, NICK, CHANNELS, PASSWORD, strip_messages=False, use_ssl=SSL)
+    .set_prefix("`")
+    .set_parser_order(False)
+)
 
 MODULES_WHITELIST = [
     "numpy",
@@ -69,6 +73,16 @@ user_source = {}
 user_env = {}
 user_state = {}
 user_multiline = {}
+
+
+def debug(*args, **kwargs):
+    """Debug function to print debug messages."""
+    logging.debug(*args, **kwargs)
+
+
+def log(*args, **kwargs):
+    """Log function to print log messages."""
+    logging.info(*args, **kwargs)
 
 
 def interpret(code, env):
@@ -162,11 +176,7 @@ def interpret(code, env):
         "_write_": lambda x: x,
         "_getitem_": lambda obj, key: obj[key],
     }
-    debug("!!!!! Executing command from process.......")
-    debug(str(env))
     exec(byte_code, data, env)
-    debug("-" * 23)
-    debug(str(env))
     return env
 
 
@@ -201,7 +211,7 @@ def process_source(nick, source):
 ##################################################
 
 
-@utils.arg_command("clear", "Clear environment and history")
+@bot.arg_command("clear", "Clear environment and history")
 def clear(args, message):
     if message.nick in user_source:
         log("Clearing ", message.nick)
@@ -210,17 +220,17 @@ def clear(args, message):
         return f"<{message.nick}> Environment and history cleared!"
 
 
-@utils.regex_cmd_with_messsage("^`(.+)`$")
-async def run(bot: IrcBot, m, message):
+@bot.regex_cmd_with_message("^`(.+)`$")
+async def run(m, message):
     global pool
     global user_source
     source = m[1]
     debug("Executing {}".format(repr(source)))
     output = process_source(message.nick, source)
-    await bot.send_message(f"<{message.nick}>> " + output, message.channel)
+    await bot.send_message(f"<{message.nick}> " + output, message.channel)
 
 
-@utils.regex_cmd_with_messsage("^(.+)$")
+@bot.regex_cmd_with_message("^(.+)$")
 def multiline_capture(m, message):
     global user_multiline
     debug(f"RECEIVED: {message.text=}")
@@ -230,7 +240,7 @@ def multiline_capture(m, message):
         user_multiline[message.nick] += message.text + "\n"
 
 
-@utils.regex_cmd_with_messsage("^```$")
+@bot.regex_cmd_with_message("^```$")
 def start_multiline(m, message):
     global user_state
     if message.nick not in user_state or not user_state[message.nick]:
@@ -247,23 +257,43 @@ def start_multiline(m, message):
         return f"<{message.nick}>> " + output
 
 
-@utils.arg_command("lsmod", "List available whitelisted modules")
+@bot.arg_command("lsmod", "List available whitelisted modules")
 def lsmod(args, message):
     return f"<{message.nick}> Available modules are: " + ", ".join(MODULES_WHITELIST)
 
 
-@utils.arg_command("paste", "Paste the code history to ix.io")
+def pastebin(text) -> str:
+    url = "https://s.h4ks.com/api/"
+    with tempfile.NamedTemporaryFile(suffix=".txt") as f:
+        with open(f.name, "wb") as file:
+            file.write(text.encode("utf-8"))
+        response = requests.post(
+            url,
+            files={"file": open(file.name, "rb")},
+        )
+    try:
+        obj = response.json()
+    except json.JSONDecodeError:
+        response.raise_for_status()
+        return response.text
+
+    if "url" in obj:
+        return obj["url"]
+    if "error" in obj:
+        return f"error: {obj['error']}"
+    return f"error: {obj}"
+
+
+@bot.arg_command("paste", "Paste the code history to ix.io")
 def paste(args, message):
     if message.nick not in user_source:
         return
     log("Pasting ", message.nick)
-    url = "http://ix.io"
-    payload = {"f:N": user_source[message.nick], "name:N": "python_repl_bot_dump.py"}
-    response = requests.request("POST", url, data=payload)
-    return f"<{message.nick}> " + response.text
+    url = pastebin(user_source[message.nick])
+    return f"<{message.nick}> " + url
 
 
-@utils.arg_command("show", "Sends the code history over private messages")
+@bot.arg_command("show", "Sends the code history over private messages")
 def show(args, message):
     if message.nick not in user_source:
         return
@@ -271,7 +301,7 @@ def show(args, message):
     return [Message(message=ln, channel=message.nick) for ln in user_source[message.nick].split("\n")]
 
 
-@utils.arg_command("run", "Runs code from a url, e.g. ix.io")
+@bot.arg_command("run", "Runs code from a url, e.g. ix.io")
 def paste_run(args, message):
     if not args[1]:
         return f"<{message.nick}> This commands requires an argument!"
@@ -285,8 +315,8 @@ def paste_run(args, message):
     return f"<{message.nick}>> " + output
 
 
-@utils.arg_command("get", "Gets the environmental variables from another user in the chat")
-async def transfer(bot: IrcBot, args, message):
+@bot.arg_command("get", "Gets the environmental variables from another user in the chat")
+async def transfer(args, message):
     if not args[1]:
         await bot.send_message(f"<{message.nick}> This commands requires an argument!", message.channel)
         return
@@ -306,19 +336,20 @@ async def transfer(bot: IrcBot, args, message):
 
 async def check_no_bot(bot: IrcBot, message: Message):
     await bot.send_raw("WHO {}".format(message.nick))
+    print("11111111111111111111111111111")
     resp = await bot.wait_for("who", message.nick, timeout=10, cache_ttl=60)
+    print("22222222222222222222222222222")
     modes = resp.get("modes")
     if modes is None or "B" in modes:
         return False
     return True
 
 
-async def on_connect(bot: IrcBot):
+async def on_connect():
     await bot.send_raw(f"MODE {bot.nick} +B")
 
 
 if __name__ == "__main__":
-    utils.setLogging(LEVEL, LOGFILE)
-    bot = IrcBot(HOST, PORT, NICK, CHANNELS, PASSWORD, strip_messages=False, use_ssl=SSL)
+    utils.set_loglevel(LEVEL, LOGFILE)
     bot.add_middleware(check_no_bot)
-    bot.runWithCallback(on_connect)
+    bot.run_with_callback(on_connect)
