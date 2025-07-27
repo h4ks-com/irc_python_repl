@@ -4,6 +4,7 @@
 Indented to be executed on a docker container for better OPSEC
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -337,9 +338,11 @@ async def transfer(args, message):
 
 async def check_no_bot(bot: IrcBot, message: Message):
     await bot.send_raw("WHO {}".format(message.nick))
-    print("11111111111111111111111111111")
-    resp = await bot.wait_for("who", message.nick, timeout=10, cache_ttl=60)
-    print("22222222222222222222222222222")
+    try:
+        resp = await bot.wait_for("who", message.nick, timeout=5, cache_ttl=60)
+    except asyncio.TimeoutError:
+        logging.error("Timeout while checking bot mode for {}".format(message.nick))
+        return True
     modes = resp.get("modes")
     if "B" in modes:
         return False
