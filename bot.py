@@ -33,7 +33,7 @@ NICK = os.getenv("NICK") or "_pybot"
 PASSWORD = os.getenv("PASSWORD") or ""
 USERNAME = NICK
 REALNAME = NICK
-CHANNELS = json.loads(os.getenv("CHANNELS") or "[]")
+CHANNELS = [c.strip() for c in os.getenv("CHANNELS", "").split(",")] if os.getenv("CHANNELS") else ["#python"]
 assert HOST, "IRC_HOST must be set in the environment"
 
 bot = (
