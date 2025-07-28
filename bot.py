@@ -110,6 +110,7 @@ def interpret(code, env):
             **limited_builtins,
             **utility_builtins,
             "_getiter_": RestrictedPython.Eval.default_guarded_getiter,
+            "_inplacevar_": _inplacevar_,
             "_iter_unpack_sequence_": RestrictedPython.Guards.guarded_iter_unpack_sequence,
             "__import__": guarded_import,
             "abs": __builtins__.abs,
