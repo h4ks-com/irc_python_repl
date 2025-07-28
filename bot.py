@@ -46,7 +46,7 @@ bot = (
 
 MODULES_WHITELIST = [
     "numpy",
-    "IrcBot",
+    "ircbot",
     "math",
     "itertools",
     "socket",
