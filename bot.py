@@ -115,7 +115,7 @@ def interpret(code, env):
         elif op == "%=":
             return var % expr
         elif op == "**=":
-            return var ** expr
+            return var**expr
         elif op == "<<=":
             return var << expr
         elif op == ">>=":
@@ -130,7 +130,6 @@ def interpret(code, env):
             return var // expr
         elif op == "@=":
             return var // expr
-
 
     data = {
         "_print_": PrintCollector,
@@ -259,6 +258,8 @@ async def run(m, message):
     source = m[1]
     debug("Executing {}".format(repr(source)))
     output = process_source(message.nick, source)
+    if len(output) > 400:
+        output = output[:400] + "..."
     await bot.send_message(f"<{message.nick}> " + output, message.channel)
 
 
