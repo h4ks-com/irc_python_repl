@@ -15,6 +15,7 @@ import requests
 import RestrictedPython
 from dotenv import load_dotenv
 from ircbot import Color, IrcBot, utils
+from ircbot.client import MAX_MESSAGE_LEN
 from ircbot.message import Message
 from pathos.multiprocessing import ProcessPool
 from RestrictedPython import compile_restricted, limited_builtins, safe_builtins, utility_builtins
@@ -229,6 +230,10 @@ def process_source(nick, source):
         user_env[nick] = env
         user_source[nick] += "\n" + source
         debug("Output collected")
+        output = output.replace("\n", " | ")
+        max_len = MAX_MESSAGE_LEN
+        if len(output) > max_len:
+            output = output[:max_len] + "..."
     except multiprocess.context.TimeoutError:
         output = Color("Timeout error - do you have an infinite loop?", fg=Color.red).str
     except Exception as e:
@@ -258,8 +263,6 @@ async def run(m, message):
     source = m[1]
     debug("Executing {}".format(repr(source)))
     output = process_source(message.nick, source)
-    if len(output) > 400:
-        output = output[:400] + "..."
     await bot.send_message(f"<{message.nick}> " + output, message.channel)
 
 
