@@ -104,32 +104,32 @@ def interpret(code, env):
     )
 
     def _inplacevar_(op, var, expr):
-    if op == "+=":
-        return var + expr
-    elif op == "-=":
-        return var - expr
-    elif op == "*=":
-        return var * expr
-    elif op == "/=":
-        return var / expr
-    elif op == "%=":
-        return var % expr
-    elif op == "**=":
-        return var ** expr
-    elif op == "<<=":
-        return var << expr
-    elif op == ">>=":
-        return var >> expr
-    elif op == "|=":
-        return var | expr
-    elif op == "^=":
-        return var ^ expr
-    elif op == "&=":
-        return var & expr
-    elif op == "//=":
-        return var // expr
-    elif op == "@=":
-        return var // expr
+        if op == "+=":
+            return var + expr
+        elif op == "-=":
+            return var - expr
+        elif op == "*=":
+            return var * expr
+        elif op == "/=":
+            return var / expr
+        elif op == "%=":
+            return var % expr
+        elif op == "**=":
+            return var ** expr
+        elif op == "<<=":
+            return var << expr
+        elif op == ">>=":
+            return var >> expr
+        elif op == "|=":
+            return var | expr
+        elif op == "^=":
+            return var ^ expr
+        elif op == "&=":
+            return var & expr
+        elif op == "//=":
+            return var // expr
+        elif op == "@=":
+            return var // expr
 
 
     data = {
