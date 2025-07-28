@@ -103,6 +103,35 @@ def interpret(code, env):
         mode="exec",
     )
 
+    def _inplacevar_(op, var, expr):
+    if op == "+=":
+        return var + expr
+    elif op == "-=":
+        return var - expr
+    elif op == "*=":
+        return var * expr
+    elif op == "/=":
+        return var / expr
+    elif op == "%=":
+        return var % expr
+    elif op == "**=":
+        return var ** expr
+    elif op == "<<=":
+        return var << expr
+    elif op == ">>=":
+        return var >> expr
+    elif op == "|=":
+        return var | expr
+    elif op == "^=":
+        return var ^ expr
+    elif op == "&=":
+        return var & expr
+    elif op == "//=":
+        return var // expr
+    elif op == "@=":
+        return var // expr
+
+
     data = {
         "_print_": PrintCollector,
         "_inplacevar_": _inplacevar_,
